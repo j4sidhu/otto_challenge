@@ -147,6 +147,16 @@ def minimum_dist(nodes, time):
             shortest = (node, time[node])
     return shortest[0]
 
+
+def reconstruct_path_for_dijk(cameFrom, current):
+    total_path = []
+    while cameFrom[current] is not None:
+        total_path.insert(0, current)
+        current = cameFrom[current]
+    total_path.insert(0, current)
+    return total_path
+
+
 path = []
 def find_shortest_time4(w):
     # Dijkstra's
@@ -167,12 +177,13 @@ def find_shortest_time4(w):
         node = minimum_dist(unvisited_nodes, time)
         if node == end_point:
             t = time[node]
-            global path
-            path = []
-            while prev[node] != None:
-                path.append(node)
-                node = prev[node]
-            path.append(node)
+            # global path
+            # path = []
+            # while prev[node] is not None:
+            #     path.append(node)
+            #     node = prev[node]
+            # path.append(node)
+            print(reconstruct_path_for_dijk(prev, node))
             return t
         unvisited_nodes.remove(node)
 
@@ -213,6 +224,7 @@ def find_shortest_time5(w):
     while openSet:
         node = minimum_dist(openSet, fScore)
         if node == end_point:
+            print(reconstruct_path(cameFrom, node))
             return gScore[node]
 
         openSet.remove(node)
@@ -264,7 +276,7 @@ def main(filename):
         route = {}
         for w in waypoints:
             route[w] = False
-        print(round(find_shortest_time5(waypoints), 3))
+        print(round(find_shortest_time4(waypoints), 3))
         # print(f7(path + [robot_start_point]))
         print("--- %s seconds ---" % (time.time() - start_time))
         i = i + num_waypoints + 1
@@ -299,7 +311,7 @@ def find_path(t, w):
     return "fail"
 
 if __name__ == '__main__':
-    main('sample_input_large.txt')
+    main('sample_input_small.txt')
 
 '''
 Recursion
