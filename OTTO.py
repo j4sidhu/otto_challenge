@@ -1,3 +1,9 @@
+"""
+This module calculates the shortest time needed for OTTO (the robot) to navigate
+through all of the waypoints in a course in accordance with the
+Clearpath robotics coding challenge guidelines
+"""
+
 import time
 
 FACTORY_LENGTH = 100  # in meters
@@ -5,7 +11,8 @@ FACTORY_WIDTH = 100  # in meters
 
 START_POINT = (0, 0, 0)
 # Starting point for Otto. Format: (X, Y, penalty)
-END_POINT = (100, 100, 0)
+
+END_POINT = (100, 100, 0)  # Ending point
 
 SPEED = 2.0  # in m/s
 TIME_AT_WAYPOINTS = 10  # in seconds
@@ -100,6 +107,7 @@ def find_shortest_time_recursive(waypoints):
     :return float: Shortest time taken to complete the course
     '''
 
+    computed_waypoints = {}
     if waypoints in computed_waypoints.keys():
         return computed_waypoints[waypoints]
         # If we have already seen this set of waypoints before
@@ -133,95 +141,129 @@ def find_shortest_time_recursive(waypoints):
 
 def find_shortest_time_dijk(w):
     '''
-    Calcualte the shortest time using Dijkstra's algorithm
+    Calcualte the shortest time with the least number of waypoints using Dijkstra's algorithm.
+    For some reason, it works for 8 out of the 9 courses but not for the
+    last course. It is off by 2.7 seconds for that and I ran out of time to debug
+
     :param w (tuple of tuples): Waypoints representing a course
     :return (float): Shortest time possible through the course
     '''
 
     start_point = w[0]
     end_point = w[-1]
-    unvisited_waypoints = []
-    total_time = {}
-    prev = {}
+    unvisited_waypoints = []  # Waypoints that have not been examined yet
+    total_time = {}  # Distance from start to waypoint
+    prev = {}  # Optimal prev waypoint
 
     for waypoint in w:
-        total_time[waypoint] = float("inf")  # Distance from start to waypoint
-        prev[waypoint] = None  # Optimal prev waypoint
+        total_time[waypoint] = float("inf")
+        prev[waypoint] = None
         unvisited_waypoints.append(waypoint)  # All waypoints are unvisited initially
 
     total_time[start_point] = 0  # Distance from start to start is zero
 
     while unvisited_waypoints:
-        waypoint = minimum_dist(unvisited_waypoints, total_time)
+        point = minimum_dist(unvisited_waypoints, total_time)
         # From the remaining waypoints, the one with the
         # minimum distance will be picked next
-
-        if waypoint == end_point:
-            shortest_time = total_time[waypoint]
-            #print(reconstruct_path_for_dijk(prev, waypoint))
+        if point == end_point:
+            shortest_time = total_time[point]
+            #print(reconstruct_path_for_dijk(prev, point))
             # Uncomment the line above if optimal path needs to be printed
             return shortest_time
 
-        unvisited_waypoints.remove(waypoint)
+        unvisited_waypoints.remove(point)
         # Remove the waypoint since it has been visited
 
         penalty = 0
-        for point in w[w.index(waypoint) + 1:]:
+        for waypoint in w[w.index(point) + 1:]:
         # Only the waypoints coming ahead sequentially are neighbours
         # since we can not visit the waypoints already skipped
-            new_time = total_time[waypoint] + calc_time(waypoint[:2], point[:2]) + TIME_AT_WAYPOINTS + penalty
+            new_time = total_time[point] + calc_time(point[:2], waypoint[:2]) + TIME_AT_WAYPOINTS + penalty
             if new_time < total_time[waypoint]:  # Shorter path has been found
                 total_time[waypoint] = new_time
                 prev[waypoint] = point
-            penalty += waypoint[2]
-            # In the next iteration, we will be skipping this waypoint so add its penalty
 
+            penalty += waypoint[2]
+            # In the next iteration, we will be skipping this
+            # waypoint so add its penalty
 
 def find_shortest_time_AStar(w):
-    # A*
+    '''
+    Calcualte the shortest time with the least number of waypoints using A* algorithm.
+    (Variant of Dijkstra algorithm above)
+    For some reason, it works for 8 out of the 9 courses but not for the
+    last course. It is off by 2.7 seconds for that and I ran out of time to debug
+
+    :param w (tuple of tuples): Waypoints representing a course
+    :return (float): Shortest time possible through the course
+    '''
+
     start_point = w[0]
     end_point = w[-1]
-    closedSet = []
-    openSet = [start_point]
+    closedSet = []  # Set of waypointa already evaluated
+    openSet = [start_point]  # Set of nodes not evaluated yet
     gScore = {}
+    # For each waypoint, shortest distance from the start to that waypoint
     fScore = {}
-    cameFrom = {}
+    # For each waypoint, shortest distance to go from start to finish
+    # through the waypoint. First part of start to waypoint is known
+    # and second part of waypoint to finish is heuristic
 
-    for waypoint in w:
+    # Heuristic function: Direct line from waypoint to end + waiting for
+    # a certain time length at the end
+
+    prev = {}
+
+    for waypoint in w:  # initializing
         gScore[waypoint] = float("inf")
         fScore[waypoint] = float("inf")
 
-    gScore[start_point] = 0
+    gScore[start_point] = 0  # Cost of going from start to start is zero
     fScore[start_point] = calc_time(start_point[:2], end_point[:2]) + TIME_AT_WAYPOINTS
 
     while openSet:
-        node = minimum_dist(openSet, fScore)
-        if node == end_point:
-            #(reconstruct_path_for_AStar(cameFrom, node))
+        point = minimum_dist(openSet, fScore)
+        if point == end_point:
+            #(reconstruct_path_for_AStar(prev, point))
             # Uncomment the line above if optimal path needs to be printed
-            return gScore[node]
+            return gScore[point]
 
-        openSet.remove(node)
-        closedSet.append(node)
+        openSet.remove(point)  # waypoint has been visited
+        closedSet.append(point)
 
         penalty = 0
-        for waypoint in w[w.index(node) + 1:]:
-            temp = penalty
+        for waypoint in w[w.index(point) + 1:]:
+            # Only the waypoints coming ahead sequentially are neighbours
+            # since we can not visit the waypoints already skipped
+
             penalty += waypoint[2]
             if waypoint in closedSet:
-                continue
-            new_time = gScore[node] + calc_time(node[:2], waypoint[:2]) + TIME_AT_WAYPOINTS + temp
-            if waypoint not in openSet:
-                openSet.append(waypoint)
-            elif new_time >= gScore[waypoint]:
-                continue
+                continue  # Ignore the neighbour which is already seen before
 
-            cameFrom[waypoint] = node
+            new_time = gScore[point] + calc_time(point[:2], waypoint[:2]) + TIME_AT_WAYPOINTS + (penalty - waypoint[2])
+            # Time from start to the waypoint
+
+            if waypoint not in openSet:
+                openSet.append(waypoint)  # New waypoint never seen before
+            elif new_time >= gScore[waypoint]:
+                continue  # Not an optimal path
+
+            # Optimal path
+            prev[waypoint] = point
             gScore[waypoint] = new_time
             fScore[waypoint] = gScore[waypoint] + calc_time(waypoint[:2], end_point[:2]) + TIME_AT_WAYPOINTS
 
 
 def main(filename=None):
+    '''
+    Read the course either from the user directly or through the optional parameter.
+    Prints the shortest time through the course to 3 decimals
+
+    :param filename(string): Optional parameter. Name of the file to read the course from
+    :return: None
+    '''
+
     if filename is None:
         filename = input('File containing the waypoints for the course:')
 
@@ -241,18 +283,48 @@ def main(filename=None):
 
         waypoints += (END_POINT,)
         print(round(find_shortest_time_dijk(waypoints), 3))
+        # Change the above line to point to any of
+        # find_shortest_time_recursive, find_shortest_time_dijk or
+        # find_shortest_time_AStar
         file_counter = file_counter + num_waypoints + 1
 
 
 def calc_avg_time():
+    '''
+    Just for my curiosity. It runs the code 50 times on a course
+    and prints the average time it took to run. I knew the recursion
+    would be the slowest but Dijkstra's or A* runtimes were up for
+    debate
+
+    Results
+    Note: Please keep in mind that these were on my home laptop
+
+    Small course
+    Average run time of recursion: 0.001 seconds
+    Average run time of Dijkstra: 0.002 seconds
+    Average run time of A*: 0.002 seconds
+
+    Medium course
+    Average run time of recursion: Too long
+    Average run time of Dijkstra: 0.0416 seconds
+    Average run time of A*: 0.0589 seconds
+
+    Large course
+    Average run time of recursion: I am not even gonna try
+    Average run time of Dijkstra: 2.291 seconds
+    Average run time of A*: 12.768 seconds
+    '''
+
     times = []
-    for c in range(0, 50):
+    for c in range(0, 50):  # run the code 50 times
         start_time = time.time()
         main('sample_input_large.txt')
         total_time = time.time() - start_time
-        times.append(total_time)
+        times.append(total_time)  # record the time
 
-    print("--- %s seconds ---" % (sum(times)/float(len(times))))
+    average = sum(times)/float(len(times))
+    print("On average, it took %s seconds to run---" % average)
 
 if __name__ == '__main__':
-    main('sample_input_small.txt')
+    main()
+    # calc_avg_time()
